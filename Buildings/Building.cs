@@ -12,6 +12,24 @@ public partial class Building : Node2D
     public Vector2I     GridPosition { get; private set; }
     public bool IsSelected { get; private set; } = false;
 
+    // ─── Здоровье ─────────────────────────────────────────────────────────────
+    public int MaxHp     { get; private set; } = 200;
+    public int CurrentHp { get; private set; } = 200;
+
+    public void TakeDamage(int amount)
+    {
+        if (CurrentHp <= 0) return;
+        CurrentHp -= amount;
+        CurrentHp  = Mathf.Max(0, CurrentHp);
+        QueueRedraw();
+        if (CurrentHp <= 0)
+        {
+            EventBus.Instance?.EmitSignal(EventBus.SignalName.AlertRaised,
+                $"⚠️ Разрушено: {Data?.DisplayName ?? "Здание"}");
+            BuildingRegistry.Instance?.DemolishBuilding(this);
+        }
+    }
+
     private (Vector2 offset, int depth)[] _tiles;
     private bool _hasSprite = false;
 
@@ -152,6 +170,17 @@ public partial class Building : Node2D
             DrawString(ThemeDB.FallbackFont,
                        new Vector2(-4f, ay + 7f), "!",
                        HorizontalAlignment.Left, -1, 18, Colors.White);
+        }
+
+        // HP-бар (только когда повреждено)
+        if (CurrentHp < MaxHp && CurrentHp > 0)
+        {
+            float barY  = -32f - Data.WallHeight - 34f;
+            float barW  = 40f;
+            float ratio = (float)CurrentHp / MaxHp;
+            DrawRect(new Rect2(-barW / 2f, barY, barW, 5f), new Color(0.15f, 0.0f, 0.0f, 0.85f));
+            DrawRect(new Rect2(-barW / 2f, barY, barW * ratio, 5f),
+                     ratio > 0.5f ? new Color(0.2f, 0.8f, 0.2f) : new Color(1f, 0.25f, 0.1f));
         }
     }
 

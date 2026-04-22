@@ -50,4 +50,10 @@ public partial class EventBus : Node
     [Signal] public delegate void GamePausedEventHandler();
     [Signal] public delegate void GameResumedEventHandler();
     [Signal] public delegate void GameSpeedChangedEventHandler(float speed);
+
+    // ─── Боевые юниты ────────────────────────────────────────────────────────
+    [Signal] public delegate void SoldierSpawnedEventHandler(Node2D soldier);
+    [Signal] public delegate void BanditSpawnedEventHandler(Node2D bandit);
+    [Signal] public delegate void CombatUnitDiedEventHandler(Node2D unit, bool wasEnemy);
+    [Signal] public delegate void CityUnderAttackEventHandler();
 }

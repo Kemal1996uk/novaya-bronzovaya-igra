@@ -199,6 +199,25 @@ public static class BuildingDatabase
         LocalInventoryCap = 20,
     };
 
+    // ─── Военные здания ──────────────────────────────────────────────────────
+
+    public static readonly BuildingData Barracks = new()
+    {
+        BuildingId        = "barracks",
+        DisplayName       = "Казарма",
+        Description       = "Тренирует солдат. 1 солдат / 60 сек. Стоимость: 150 Д за солдата.",
+        FootprintSize     = new Vector2I(3, 3),
+        PlaceholderColor  = new Color(0.45f, 0.25f, 0.12f),
+        WallHeight        = 30,
+        GoldCost          = 2000,
+        WoodCost          = 15,
+        StoneCost         = 20,
+        RequiresRoad      = true,
+        WorkerCost        = 0,
+        OutputResourceId  = "",
+        LocalInventoryCap = 0,
+    };
+
     // ─── Все здания в BuildMenu ───────────────────────────────────────────────
 
     /// <summary>Базовые здания (всегда доступны).</summary>
@@ -217,7 +236,7 @@ public static class BuildingDatabase
     public static BuildingData[] All => new[]
     {
         Sawmill, StoneWorkshop, Farm, FishingHut, House, Warehouse,
-        CopperMine, TinMine, Smelter
+        CopperMine, TinMine, Smelter, Barracks
     };
 
     public static BuildingData Find(string id) => id switch
@@ -232,6 +251,7 @@ public static class BuildingDatabase
         "copper_mine"    => CopperMine,
         "tin_mine"       => TinMine,
         "smelter"        => Smelter,
+        "barracks"       => Barracks,
         _                => null,
     };
 }

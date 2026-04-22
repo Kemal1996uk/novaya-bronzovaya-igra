@@ -10,6 +10,7 @@ public partial class World : Node2D
     private BuildPlacementGhost _ghost;
     private RoadTool            _roadTool;
     private CanalTool           _canalTool;
+    private CombatManager       _combatManager;
 
     private bool _inPlacementMode;
     private bool _inRoadMode;
@@ -48,10 +49,16 @@ public partial class World : Node2D
         AddChild(_canalTool);
         _canalTool.Initialize(_tileMap);
 
+        _combatManager = new CombatManager { Name = "CombatManager" };
+        AddChild(_combatManager);
+        _combatManager.Initialize(_tileMap);
+
         var resBar    = new ResourceBar       { Name = "ResourceBar" };
         var infoPanel = new BuildingInfoPanel { Name = "InfoPanel"   };
+        var combatHud = new CombatHud         { Name = "CombatHud"   };
         AddChild(resBar);
         AddChild(infoPanel);
+        AddChild(combatHud);
 
         // ── Подписки ──────────────────────────────────────────────────────────
         EventBus.Instance.PlacementModeEntered += _ =>
@@ -116,6 +123,14 @@ public partial class World : Node2D
             _unitsNode.AddChild(unit);
             // Ставим чуть ниже переднего угла здания
             unit.GlobalPosition = b.GlobalPosition + new Vector2(0f, 24f);
+        }
+
+        // Казарма → прикрепляем компонент обучения солдат
+        if (b.Data?.BuildingId == "barracks")
+        {
+            var queue = new TrainingQueue { Name = "TrainingQueue" };
+            b.AddChild(queue);
+            queue.Initialize(_unitsNode);
         }
     }
 

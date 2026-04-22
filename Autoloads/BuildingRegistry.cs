@@ -140,6 +140,8 @@ public partial class BuildingRegistry : Node
             building.AddChild(new SmelterComponent { Name = "SmelterComponent" });
         }
 
+        // Казарма — TrainingQueue прикрепляется в World.OnBuildingPlaced (нужен _unitsNode)
+
         _buildingContainer.AddChild(building);
         building.Initialize(data, anchorTile, _tileMap);
 
