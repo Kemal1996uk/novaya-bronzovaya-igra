@@ -29,18 +29,18 @@
 ## Структура проекта
 ```
 ├── Autoloads/          # Синглтоны (EventBus, GameManager, BuildingRegistry, NavigationManager, ResourceManager, WorkerManager)
-├── Buildings/          # Building.cs + Components/ (CartAgent, FarmField, HouseLevel, Inventory, ProductionCycle, Smelter, Warehouse, WorkerAssignment)
-├── Combat/             # ПУСТО — будущая боевая система
+├── Buildings/          # Building.cs + Components/ (CartAgent, FarmField, HouseLevel, Inventory, ProductionCycle, Smelter, Warehouse, WorkerAssignment, TrainingQueue)
+├── Combat/             # CombatManager.cs — волны бандитов (2+N каждые 3 мин)
 ├── Data/               # BuildingData, BuildingDatabase, ResourceDatabase (ScriptableObject-аналоги)
 ├── Economy/            # ResourceManager.cs
 ├── Input/              # BuildPlacementGhost.cs
 ├── Roads/              # RoadTool.cs, CanalTool.cs
 ├── UI/                 # BuildMenu, ResourceBar, BuildingInfoPanel, MainMenu
-│   └── HUD/            # ПУСТО — будущий боевой HUD
+│   └── HUD/            # CombatHud.cs — алерт НАПАДЕНИЕ! + счётчики юнитов
 ├── Units/              # HumanUnit.cs
 │   ├── Base/           # ПУСТО — базовые классы
-│   ├── Military/       # ПУСТО — солдаты, лучники
-│   └── AI/             # ПУСТО — поведение юнитов
+│   ├── Military/       # Soldier.cs — боевой юнит игрока (ЛКМ=выделить, ПКМ=двигать)
+│   └── AI/             # Bandit.cs — враг (красный ромб, атакует здания и солдат)
 ├── World/              # World.cs, World.tscn (главная сцена игры), TileType.cs
 │   ├── Tilemap/        # IsoTileMap.cs, TileCoordHelper.cs
 │   ├── MapEditor.cs    # Редактор карт
@@ -93,8 +93,19 @@ Canal=8 (8,0)  — синий центр + коричневая рамка, ко
 ✅ Дороги и Каналы (A* прокладка, клик A→B)
 ✅ Главное меню + Редактор карт + Библиотека карт (сохранение в user://maps/)
 ✅ Git с автокоммитом
+✅ Боевая система: Казарма → Солдаты, волны Бандитов, HP зданий, CombatHud
 
-🔜 Следующая приоритетная фича: **Боевые юниты** (папка Military/ готова)
+## Боевая система (апрель 2026)
+- **Казарма** (3×3, 2000Д+15Д+20К): тренирует 1 солдата каждые 60 сек за 150 Д
+- **Soldier**: ЛКМ=выделить, ПКМ=приказ двигаться, авто-атака бандитов в 65px
+  HP=100, Атака=20, Скорость=55. Стальной оттенок. Один солдат выделён в момент.
+- **Bandit**: красный ромб, HP=60, Атака=8 по зданиям/16 по солдатам
+  Агрит солдат в 150px, иначе идёт к ближайшему зданию. Спавн на краях карты.
+- **CombatManager**: волна 1 через 2 мин, дальше каждые 3 мин, размер 2+N
+- **HP зданий**: 200 HP, TakeDamage(), HP-бар при повреждении, снос при 0 HP
+- **CombatHud**: мигающий алерт «🚨 НАПАДЕНИЕ!» (6 сек), счётчик ⚔️N 🔴N
+
+🔜 Следующие фичи: лучник, башня/стена, звуки, сохранение игры
 
 ## Спрайты юнитов
 - Idle: `human_idle_{dir}.png` — 256×512px, 1 кадр
