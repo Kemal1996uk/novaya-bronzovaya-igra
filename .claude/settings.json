@@ -6,9 +6,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "git add -A && git diff --cached --quiet || git commit -m \"Auto-save: Claude session $(date +\"%Y-%m-%d %H:%M\")\"",
-            "timeout": 30,
-            "statusMessage": "💾 Сохраняю изменения в git..."
+            "command": "cd \"/Users/kemal/новая-бронзовая-игра-\" && git add -A && git diff --cached --quiet || git commit -m \"Auto-save: Claude session $(date +\"%Y-%m-%d %H:%M\")\" && ~/.local/bin/gh repo view --json name -q .name > /dev/null 2>&1 && git push origin main 2>/dev/null || true",
+            "timeout": 60,
+            "statusMessage": "💾 Сохраняю и пушу на GitHub..."
           }
         ]
       }
