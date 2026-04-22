@@ -598,12 +598,24 @@ public partial class IsoTileMap : TileMapLayer
     /// </summary>
     private static bool BlitTileFromFile(Image atlas, int tileIndex, string resPath)
     {
-        var tex = GD.Load<Texture2D>(resPath);
-        if (tex == null) return false;
+        Image src = null;
 
-        var src = tex.GetImage();
+        // Пробуем загрузить напрямую из файла (не зависит от .import кэша)
+        string absPath = ProjectSettings.GlobalizePath(resPath);
+        if (System.IO.File.Exists(absPath))
+        {
+            src = Image.LoadFromFile(absPath);
+        }
+
+        // Fallback — через ResourceLoader
+        if (src == null)
+        {
+            var tex = GD.Load<Texture2D>(resPath);
+            if (tex == null) return false;
+            src = tex.GetImage();
+        }
+
         src.Resize(128, 64, Image.Interpolation.Bilinear);
-
         atlas.BlitRect(src, new Rect2I(0, 0, 128, 64), new Vector2I(tileIndex * 128, 0));
         return true;
     }
