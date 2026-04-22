@@ -1,0 +1,13 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Data/Buildings/BuildingData.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+building_id = "warehouse"
+display_name = "Склад"
+description = "Хранит сырьё: дерево, камень, бронзу. Нужно 2 носильщика."
+footprint_size = Vector2i(2, 2)
+placeholder_color = Color(0.55, 0.42, 0.28, 1)
+worker_slots = 2
+resident_capacity = 0

@@ -1,0 +1,37 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Новая Бронзовая Игра"
+run/main_scene="res://UI/MainMenu.tscn"
+config/features=PackedStringArray("4.6", "C#", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+EventBus="*res://Autoloads/EventBus.cs"
+GameManager="*res://Autoloads/GameManager.cs"
+BuildingRegistry="*res://Autoloads/BuildingRegistry.cs"
+NavigationManager="*res://Autoloads/NavigationManager.cs"
+ResourceManager="*res://Economy/ResourceManager.cs"
+WorkerManager="*res://Autoloads/WorkerManager.cs"
+
+[dotnet]
+
+project/assembly_name="Новая Бронзовая Игра"
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+rendering_device/driver.windows="d3d12"

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Data/Buildings/BuildingData.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+building_id = "farm"
+display_name = "Ферма"
+description = "Производит зерно. Нужно 2 рабочих. Строй рядом с амбаром."
+footprint_size = Vector2i(2, 2)
+placeholder_color = Color(0.35, 0.75, 0.22, 1)
+worker_slots = 2
+resident_capacity = 0
