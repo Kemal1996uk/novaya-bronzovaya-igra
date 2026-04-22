@@ -291,20 +291,11 @@ public partial class IsoTileMap : TileMapLayer
             return;
         }
 
-        if (type == TileType.Sand)
-        {
-            // Анимированный песок через SandSourceId; fallback — статичный атлас
-            if (TileSet.GetSourceCount() > SandSourceId)
-                SetCell(tile, SandSourceId, new Vector2I(0, 0));
-            else
-                SetCell(tile, SourceId, AtlasSand);
-            return;
-        }
-
         var atlas = type switch
         {
             TileType.Grass     => AtlasGrass,
             TileType.Road      => AtlasRoad,
+            TileType.Sand      => AtlasSand,
             TileType.Forest    => AtlasForest,
             TileType.Rock      => AtlasRock,
             TileType.CopperOre => AtlasCopperOre,
@@ -563,7 +554,7 @@ public partial class IsoTileMap : TileMapLayer
             };
             var sandCoord = new Vector2I(0, 0);
             sandSource.CreateTile(sandCoord);
-            sandSource.SetTileAnimationFramesCount(sandCoord, 16);
+            sandSource.SetTileAnimationFramesCount(sandCoord, 12);
             sandSource.SetTileAnimationSpeed(sandCoord, 6f);
             tileSet.AddSource(sandSource, SandSourceId);
         }
