@@ -21,6 +21,7 @@ public partial class IsoTileMap : TileMapLayer
 
     public const int SourceId      = 0;
     public const int WaterSourceId = 1;
+    public const int SandSourceId  = 2;
 
     public static readonly Vector2I AtlasGrass     = new(0, 0);
     public static readonly Vector2I AtlasRoad      = new(1, 0);
@@ -290,11 +291,20 @@ public partial class IsoTileMap : TileMapLayer
             return;
         }
 
+        if (type == TileType.Sand)
+        {
+            // Анимированный песок через SandSourceId; fallback — статичный атлас
+            if (TileSet.GetSourceCount() > SandSourceId)
+                SetCell(tile, SandSourceId, new Vector2I(0, 0));
+            else
+                SetCell(tile, SourceId, AtlasSand);
+            return;
+        }
+
         var atlas = type switch
         {
             TileType.Grass     => AtlasGrass,
             TileType.Road      => AtlasRoad,
-            TileType.Sand      => AtlasSand,
             TileType.Forest    => AtlasForest,
             TileType.Rock      => AtlasRock,
             TileType.CopperOre => AtlasCopperOre,
@@ -542,6 +552,22 @@ public partial class IsoTileMap : TileMapLayer
             tileSet.AddSource(waterSource, WaterSourceId);
         }
 
+        // Анимированный тайл песка (16 кадров, однострочный strip 2048×64)
+        var sandTex = GD.Load<Texture2D>("res://Assets/Tiles/sand1_anim_strip_1row.png");
+        if (sandTex != null)
+        {
+            var sandSource = new TileSetAtlasSource
+            {
+                Texture           = sandTex,
+                TextureRegionSize = new Vector2I(128, 64)
+            };
+            var sandCoord = new Vector2I(0, 0);
+            sandSource.CreateTile(sandCoord);
+            sandSource.SetTileAnimationFramesCount(sandCoord, 16);
+            sandSource.SetTileAnimationSpeed(sandCoord, 6f);
+            tileSet.AddSource(sandSource, SandSourceId);
+        }
+
         TileSet = tileSet;
     }
 
@@ -559,7 +585,7 @@ public partial class IsoTileMap : TileMapLayer
         if (!BlitTileFromFile(image, 2, "res://Assets/Tiles/sea.png"))
             DrawIsoDiamond(image, 2, new Color(0.16f, 0.44f, 0.82f), new Color(0.08f, 0.26f, 0.60f));
         // Sand — реальный тайл из файла, иначе заглушка
-        if (!BlitTileFromFile(image, 3, "res://Assets/Tiles/sand.png"))
+        if (!BlitTileFromFile(image, 3, "res://Assets/Tiles/sand1.png"))
             DrawIsoDiamond(image, 3, new Color(0.83f, 0.72f, 0.48f), new Color(0.65f, 0.54f, 0.30f));
         // Forest
         DrawIsoDiamond(image, 4, new Color(0.18f, 0.36f, 0.06f), new Color(0.08f, 0.20f, 0.02f));
