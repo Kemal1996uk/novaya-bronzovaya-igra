@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git add -A && git diff --cached --quiet || git commit -m \"Auto-save: Claude session $(date +\"%Y-%m-%d %H:%M\")\"",
+            "timeout": 30,
+            "statusMessage": "💾 Сохраняю изменения в git..."
+          }
+        ]
+      }
+    ]
+  }
+}
