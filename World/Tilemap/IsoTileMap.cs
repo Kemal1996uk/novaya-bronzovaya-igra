@@ -571,39 +571,55 @@ public partial class IsoTileMap : TileMapLayer
 
     /// <summary>
     /// Вставляет тайл [srcTileX, srcTileY] из PNG-файла в позицию dstIndex атласа.
-    /// Ожидаемый размер тайла PNG: 128×64. Если PNG больше — кроп, если меньше — resize.
+    /// Явно конвертирует в Rgba8 перед блитингом (иначе чёрные пиксели).
     /// После вставки применяет алмазную маску: снаружи ромба alpha=0.
     /// </summary>
     private static bool BlitPng(Image atlas, int dstIndex, string resPath, int srcTileX, int srcTileY)
     {
         const int w = 128, h = 64;
 
+        // Сначала через Godot ResourceLoader (использует .import кэш)
         Image src = null;
-        string absPath = ProjectSettings.GlobalizePath(resPath);
-        if (System.IO.File.Exists(absPath))
-            src = Image.LoadFromFile(absPath);
+        var tex = ResourceLoader.Load<Texture2D>(resPath);
+        if (tex != null)
+            src = tex.GetImage();
+
+        // Fallback — прямая загрузка файла
         if (src == null)
         {
-            var tex = GD.Load<Texture2D>(resPath);
-            if (tex == null) return false;
-            src = tex.GetImage();
+            string absPath = ProjectSettings.GlobalizePath(resPath);
+            if (System.IO.File.Exists(absPath))
+                src = Image.LoadFromFile(absPath);
         }
 
+        if (src == null)
+        {
+            GD.PrintErr($"[IsoTileMap] BlitPng: не удалось загрузить {resPath}");
+            return false;
+        }
+
+        // ОБЯЗАТЕЛЬНО конвертируем в Rgba8 — иначе BlitRect даёт чёрные пиксели
+        if (src.GetFormat() != Image.Format.Rgba8)
+            src.Convert(Image.Format.Rgba8);
+
         // Кроп нужного тайла из спрайтшита
-        var region = new Rect2I(srcTileX * w, srcTileY * h, w, h);
-        var tile = Image.CreateEmpty(w, h, false, Image.Format.Rgba8);
-        if (src.GetWidth() >= region.End.X && src.GetHeight() >= region.End.Y)
-            tile.BlitRect(src, region, Vector2I.Zero);
+        int sx = srcTileX * w, sy = srcTileY * h;
+        Image tile;
+        if (src.GetWidth() >= sx + w && src.GetHeight() >= sy + h)
+        {
+            tile = Image.CreateEmpty(w, h, false, Image.Format.Rgba8);
+            tile.BlitRect(src, new Rect2I(sx, sy, w, h), Vector2I.Zero);
+        }
         else
         {
             src.Resize(w, h, Image.Interpolation.Nearest);
-            tile.BlitRect(src, new Rect2I(0, 0, w, h), Vector2I.Zero);
+            tile = src;
         }
 
-        // Вставляем в атлас
+        // Вставляем тайл в нужную позицию атласа
         atlas.BlitRect(tile, new Rect2I(0, 0, w, h), new Vector2I(dstIndex * w, 0));
 
-        // Алмазная маска: снаружи ромба → alpha=0, внутри → alpha=1
+        // Алмазная маска: снаружи ромба → alpha=0, внутри → alpha строго 1
         int ox = dstIndex * w;
         for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++)
@@ -619,6 +635,8 @@ public partial class IsoTileMap : TileMapLayer
                 atlas.SetPixel(ox + x, y, new Color(c.R, c.G, c.B, 1.0f));
             }
         }
+
+        GD.Print($"[IsoTileMap] BlitPng OK: {resPath} tile({srcTileX},{srcTileY}) → atlas[{dstIndex}]");
         return true;
     }
 
