@@ -19,10 +19,7 @@ public partial class IsoTileMap : TileMapLayer
 {
     public Vector2I MapSize { get; private set; } = new Vector2I(160, 160);
 
-    public const int SourceId        = 0;
-    public const int WaterSourceId   = 1;
-    public const int SandSourceId    = 2;
-    public const int DesertSourceId  = 3;
+    public const int SourceId = 0;
 
     public static readonly Vector2I AtlasGrass     = new(0, 0);
     public static readonly Vector2I AtlasRoad      = new(1, 0);
@@ -39,9 +36,6 @@ public partial class IsoTileMap : TileMapLayer
     private TileType[,] _typeGrid;
 
     private TileMapLayer _bgWaterLayer;
-    private TileMapLayer _bgDesertLayer;
-    private TileMapLayer _bgGrassLayer;
-    private TileMapLayer _bgSandLayer;
 
     public override void _Ready()
     {
@@ -58,9 +52,6 @@ public partial class IsoTileMap : TileMapLayer
         _typeGrid = new TileType[MapSize.X, MapSize.Y];
         SetupTileSet();
         SetupBgWaterLayer();
-        SetupBgSolidLayer(ref _bgGrassLayer,  "BgGrassLayer",  new Color(0.35f, 0.55f, 0.16f), zIndex: -3);
-        SetupBgSolidLayer(ref _bgSandLayer,   "BgSandLayer",   new Color(0.83f, 0.72f, 0.48f), zIndex: -2);
-        SetupBgSolidLayer(ref _bgDesertLayer, "BgDesertLayer", new Color(0.91f, 0.82f, 0.54f), zIndex: -1);
 
         if (gm?.EditorMapMode == true)
         {
@@ -76,43 +67,6 @@ public partial class IsoTileMap : TileMapLayer
             GenerateIsland();
             GD.Print($"[IsoTileMap] Остров {MapSize.X}×{MapSize.Y} сгенерирован.");
         }
-    }
-
-    /// <summary>
-    /// Создаёт фоновый слой сплошного цвета (прямоугольник 128×64, без прозрачных углов).
-    /// Перекрывает швы между тайлами при движении камеры.
-    /// </summary>
-    private void SetupBgSolidLayer(ref TileMapLayer layer, string name, Color color, int zIndex)
-    {
-        // Сплошной прямоугольник — НЕ ромб, чтобы перекрыть углы
-        var img = Image.CreateEmpty(128, 64, false, Image.Format.Rgba8);
-        img.Fill(color);
-        var tex = ImageTexture.CreateFromImage(img);
-
-        var ts = new TileSet
-        {
-            TileShape  = TileSet.TileShapeEnum.Isometric,
-            TileLayout = TileSet.TileLayoutEnum.DiamondDown,
-            TileSize   = new Vector2I(128, 64)
-        };
-        var src = new TileSetAtlasSource
-        {
-            Texture           = tex,
-            TextureRegionSize = new Vector2I(128, 64),
-            UseTexturePadding = false
-        };
-        src.CreateTile(new Vector2I(0, 0));
-        ts.AddSource(src, 0);
-
-        layer = new TileMapLayer
-        {
-            Name          = name,
-            YSortEnabled  = false,
-            ZIndex        = zIndex,
-            TileSet       = ts,
-            TextureFilter = TextureFilterEnum.Nearest
-        };
-        AddChild(layer);
     }
 
     private void SetupBgWaterLayer()
@@ -330,31 +284,12 @@ public partial class IsoTileMap : TileMapLayer
     {
         var type = _typeGrid[tile.X, tile.Y];
 
-        // ── Фоновые слои: сплошной цвет перекрывает швы под ромбами ──────────
-        UpdateBgLayers(tile, type);
-
-        if (type == TileType.Water)
-        {
-            if (TileSet.GetSourceCount() > 1)
-                SetCell(tile, WaterSourceId, new Vector2I(0, 0));
-            else
-                SetCell(tile, SourceId, AtlasWater);
-            return;
-        }
-
-        if (type == TileType.Sand)
-        {
-            if (TileSet.GetSourceCount() > SandSourceId)
-                SetCell(tile, SandSourceId, new Vector2I(0, 0));
-            else
-                SetCell(tile, SourceId, AtlasSand);
-            return;
-        }
-
         var atlas = type switch
         {
             TileType.Grass     => AtlasGrass,
             TileType.Road      => AtlasRoad,
+            TileType.Water     => AtlasWater,
+            TileType.Sand      => AtlasSand,
             TileType.Forest    => AtlasForest,
             TileType.Rock      => AtlasRock,
             TileType.CopperOre => AtlasCopperOre,
@@ -364,38 +299,6 @@ public partial class IsoTileMap : TileMapLayer
             _                  => AtlasGrass,
         };
         SetCell(tile, SourceId, atlas);
-    }
-
-    /// <summary>
-    /// Обновляет фоновые сплошные слои для каждого тайла.
-    /// Сплошные прямоугольники перекрывают просветы между ромбами при движении камеры.
-    /// </summary>
-    private void UpdateBgLayers(Vector2I tile, TileType type)
-    {
-        var coord = new Vector2I(0, 0);
-
-        // Трава — фоновый слой трава-цвет
-        if (_bgGrassLayer != null)
-        {
-            bool isGrass = type is TileType.Grass or TileType.Forest or TileType.Rock
-                                or TileType.CopperOre or TileType.TinOre or TileType.Road or TileType.Canal;
-            if (isGrass) _bgGrassLayer.SetCell(tile, 0, coord);
-            else         _bgGrassLayer.EraseCell(tile);
-        }
-
-        // Песок — фоновый слой песок-цвет
-        if (_bgSandLayer != null)
-        {
-            if (type == TileType.Sand) _bgSandLayer.SetCell(tile, 0, coord);
-            else                       _bgSandLayer.EraseCell(tile);
-        }
-
-        // Пустыня — фоновый слой пустынь-цвет
-        if (_bgDesertLayer != null)
-        {
-            if (type == TileType.Desert) _bgDesertLayer.SetCell(tile, 0, coord);
-            else                         _bgDesertLayer.EraseCell(tile);
-        }
     }
 
     // ─── Публичные методы ─────────────────────────────────────────────────────
@@ -594,6 +497,11 @@ public partial class IsoTileMap : TileMapLayer
 
     // ─── TileSet с 6 заглушками ───────────────────────────────────────────────
 
+    /// <summary>
+    /// Единый атлас-источник, все тайлы — жёсткие процедурные ромбы.
+    /// Никаких PNG, никаких анимаций: чистый путь без причин для швов.
+    /// use_texture_padding=true — встроенная защита Godot от швов.
+    /// </summary>
     private void SetupTileSet()
     {
         var tileSet = new TileSet
@@ -606,7 +514,8 @@ public partial class IsoTileMap : TileMapLayer
         var source = new TileSetAtlasSource
         {
             Texture           = CreatePlaceholderTexture(),
-            TextureRegionSize = new Vector2I(128, 64)
+            TextureRegionSize = new Vector2I(128, 64),
+            UseTexturePadding = true  // явно: 1px padding по краям каждого тайла
         };
 
         source.CreateTile(AtlasGrass);
@@ -622,191 +531,39 @@ public partial class IsoTileMap : TileMapLayer
 
         tileSet.AddSource(source, SourceId);
 
-        // Анимированный тайл воды
-        var waterTex = GD.Load<Texture2D>("res://Assets/Tiles/sea_anim_strip.png");
-        if (waterTex != null)
-        {
-            var waterSource = new TileSetAtlasSource
-            {
-                Texture           = waterTex,
-                TextureRegionSize = new Vector2I(128, 64)
-            };
-            var waterCoord = new Vector2I(0, 0);
-            waterSource.CreateTile(waterCoord);
-            waterSource.SetTileAnimationFramesCount(waterCoord, 9);
-            waterSource.SetTileAnimationSpeed(waterCoord, 4f);
-            tileSet.AddSource(waterSource, WaterSourceId);
-        }
-
-        // Анимированный тайл песка (12 кадров, однострочный strip 1536×64)
-        // Загружаем напрямую из файла — без .import
-        var sandStripPath = ProjectSettings.GlobalizePath("res://Assets/Tiles/sand1_anim_strip_1row.png");
-        if (System.IO.File.Exists(sandStripPath))
-        {
-            var sandImg = Image.LoadFromFile(sandStripPath);
-            if (sandImg != null)
-            {
-                // SOLID: заполняем каждый кадр полностью (не алмазная маска).
-                // Прозрачные углы в анимированных тайлах вызывают швы — solid решает.
-                // SetTileAnimationColumns(12) нужен: кадры расположены в 1 строку (1536×64),
-                // без этого Godot ищет кадры вертикально → видит только кадр 0.
-                MakeSolidStrip(sandImg);
-                var sandTex2 = ImageTexture.CreateFromImage(sandImg);
-                var sandSource = new TileSetAtlasSource
-                {
-                    Texture           = sandTex2,
-                    TextureRegionSize = new Vector2I(128, 64)
-                };
-                var sandCoord = new Vector2I(0, 0);
-                sandSource.CreateTile(sandCoord);
-                sandSource.SetTileAnimationColumns(sandCoord, 12); // ← 12 кадров в строку!
-                sandSource.SetTileAnimationFramesCount(sandCoord, 12);
-                sandSource.SetTileAnimationSpeed(sandCoord, 6f);
-                tileSet.AddSource(sandSource, SandSourceId);
-            }
-        }
-
         TileSet = tileSet;
     }
 
+    /// <summary>
+    /// Процедурный атлас всех тайлов — только DrawIsoDiamond, без PNG.
+    /// Жёсткие пиксельные края гарантируют отсутствие швов с Nearest-фильтром.
+    /// </summary>
     private static ImageTexture CreatePlaceholderTexture()
     {
         const int tileW = 128, tileH = 64;
-        // 10 тайлов в ряд (0-8 оригинальные + 9 Desert)
+        // 10 тайлов в ряд (0-9)
         var image = Image.CreateEmpty(tileW * 10, tileH, false, Image.Format.Rgba8);
 
-        // Grass — SOLID прямоугольник, без швов (use_texture_padding не работает с прозрачными углами)
-        DrawSolidTile(image, 0, new Color(0.35f, 0.55f, 0.16f), new Color(0.20f, 0.36f, 0.06f));
-        // Road
-        DrawIsoDiamond(image, 1, new Color(0.63f, 0.50f, 0.31f), new Color(0.43f, 0.32f, 0.16f));
-        // Water — реальный тайл из файла, иначе заглушка
-        if (!BlitTileFromFile(image, 2, "res://Assets/Tiles/sea.png"))
-            DrawIsoDiamond(image, 2, new Color(0.16f, 0.44f, 0.82f), new Color(0.08f, 0.26f, 0.60f));
-        // Sand — SOLID (без PNG, без прозрачных углов → нет швов)
-        DrawSolidTile(image, 3, new Color(0.83f, 0.72f, 0.48f), new Color(0.65f, 0.54f, 0.30f));
-        // Forest
-        DrawIsoDiamond(image, 4, new Color(0.18f, 0.36f, 0.06f), new Color(0.08f, 0.20f, 0.02f));
-        // Rock
-        DrawIsoDiamond(image, 5, new Color(0.47f, 0.47f, 0.47f), new Color(0.28f, 0.28f, 0.28f));
-        // CopperOre — медно-оранжевый
-        DrawIsoDiamond(image, 6, new Color(0.72f, 0.35f, 0.12f), new Color(0.50f, 0.22f, 0.06f));
-        // TinOre — серо-голубой
-        DrawIsoDiamond(image, 7, new Color(0.55f, 0.55f, 0.68f), new Color(0.35f, 0.35f, 0.50f));
-        // Canal — синий центр + коричневая рамка (бортики)
-        DrawIsoDiamond(image, 8, new Color(0.16f, 0.44f, 0.82f), new Color(0.48f, 0.29f, 0.12f));
-        // Desert — реальный тайл из файла, иначе заглушка (бледно-жёлтый)
-        if (!BlitTileFromFile(image, 9, "res://Assets/Tiles/desert.png"))
-            DrawIsoDiamond(image, 9, new Color(0.91f, 0.82f, 0.54f), new Color(0.75f, 0.66f, 0.38f));
+        DrawIsoDiamond(image, 0, new Color(0.35f, 0.55f, 0.16f), new Color(0.20f, 0.36f, 0.06f)); // Grass
+        DrawIsoDiamond(image, 1, new Color(0.63f, 0.50f, 0.31f), new Color(0.43f, 0.32f, 0.16f)); // Road
+        DrawIsoDiamond(image, 2, new Color(0.16f, 0.44f, 0.82f), new Color(0.08f, 0.26f, 0.60f)); // Water
+        DrawIsoDiamond(image, 3, new Color(0.83f, 0.72f, 0.48f), new Color(0.65f, 0.54f, 0.30f)); // Sand
+        DrawIsoDiamond(image, 4, new Color(0.18f, 0.36f, 0.06f), new Color(0.08f, 0.20f, 0.02f)); // Forest
+        DrawIsoDiamond(image, 5, new Color(0.47f, 0.47f, 0.47f), new Color(0.28f, 0.28f, 0.28f)); // Rock
+        DrawIsoDiamond(image, 6, new Color(0.72f, 0.35f, 0.12f), new Color(0.50f, 0.22f, 0.06f)); // CopperOre
+        DrawIsoDiamond(image, 7, new Color(0.55f, 0.55f, 0.68f), new Color(0.35f, 0.35f, 0.50f)); // TinOre
+        DrawIsoDiamond(image, 8, new Color(0.16f, 0.44f, 0.82f), new Color(0.48f, 0.29f, 0.12f)); // Canal
+        DrawIsoDiamond(image, 9, new Color(0.91f, 0.82f, 0.54f), new Color(0.75f, 0.66f, 0.38f)); // Desert
 
         return ImageTexture.CreateFromImage(image);
     }
 
     /// <summary>
-    /// Загружает PNG-файл тайла и вставляет его в позицию tileIndex атласа.
-    /// Масштабирует до 128×64. Возвращает false если файл не найден.
-    /// После блитинга применяет алмазную маску: за ромбом alpha=0, внутри alpha=1.
+    /// Рисует изометрический ромб (диамант) 128×64 в позиции tileIndex атласа.
+    /// Пиксели снаружи ромба не трогаются → остаются прозрачными (alpha=0).
+    /// Жёсткие пиксельные края + Nearest-фильтр + use_texture_padding=true +
+    /// камера с .Round() + zoom=1.0 гарантируют отсутствие швов.
     /// </summary>
-    private static bool BlitTileFromFile(Image atlas, int tileIndex, string resPath)
-    {
-        Image src = null;
-
-        // Пробуем загрузить напрямую из файла (не зависит от .import кэша)
-        string absPath = ProjectSettings.GlobalizePath(resPath);
-        if (System.IO.File.Exists(absPath))
-            src = Image.LoadFromFile(absPath);
-
-        // Fallback — через ResourceLoader
-        if (src == null)
-        {
-            var tex = GD.Load<Texture2D>(resPath);
-            if (tex == null) return false;
-            src = tex.GetImage();
-        }
-
-        // Nearest — не создаёт полупрозрачных пикселей на краях ромба при ресайзе
-        src.Resize(128, 64, Image.Interpolation.Nearest);
-        atlas.BlitRect(src, new Rect2I(0, 0, 128, 64), new Vector2I(tileIndex * 128, 0));
-
-        // Алмазная маска: снаружи ромба → строго alpha=0, внутри → alpha=1
-        // Та же математика что и в DrawIsoDiamond — исключает полупрозрачные швы
-        ApplyDiamondMaskToAtlas(atlas, tileIndex * 128);
-        return true;
-    }
-
-    /// <summary>
-    /// Применяет алмазную маску к одному тайлу (128×64) в атласе по смещению offsetX.
-    /// Пиксели за пределами ромба → полностью прозрачны; внутри → полностью непрозрачны.
-    /// </summary>
-    private static void ApplyDiamondMaskToAtlas(Image atlas, int offsetX)
-    {
-        const int w = 128, h = 64;
-        for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++)
-        {
-            float nx   = (float)x / w;
-            float ny   = (float)y / h;
-            float dist = Mathf.Abs(nx - 0.5f) + Mathf.Abs(ny - 0.5f);
-            if (dist > 0.5f)
-                atlas.SetPixel(offsetX + x, y, Colors.Transparent);
-            else
-            {
-                var c = atlas.GetPixel(offsetX + x, y);
-                atlas.SetPixel(offsetX + x, y, new Color(c.R, c.G, c.B, 1.0f));
-            }
-        }
-    }
-
-    /// <summary>
-    /// Применяет алмазную маску ко всем кадрам стрипа (1 строка, несколько кадров).
-    /// Используется для анимационных тайлов.
-    /// </summary>
-    private static void ApplyDiamondMaskToStrip(Image strip, int frameW = 128, int frameH = 64)
-    {
-        int frames = strip.GetWidth() / frameW;
-        for (int f = 0; f < frames; f++)
-            ApplyDiamondMaskToAtlas(strip, f * frameW);
-    }
-
-    /// <summary>
-    /// Делает каждый пиксель стрипа полностью непрозрачным (solid).
-    /// Нужно для анимированных ground-тайлов: прозрачные углы создают швы,
-    /// solid-кадры гарантируют бесшовную укладку через Y-sort.
-    /// </summary>
-    private static void MakeSolidStrip(Image strip)
-    {
-        int w = strip.GetWidth();
-        int h = strip.GetHeight();
-        for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++)
-        {
-            var c = strip.GetPixel(x, y);
-            strip.SetPixel(x, y, new Color(c.R, c.G, c.B, 1.0f));
-        }
-    }
-
-    /// <summary>
-    /// Рисует сплошной прямоугольный тайл 128×64 — без прозрачных углов.
-    /// Это единственный способ полностью устранить швы для тайлов земли:
-    /// use_texture_padding не помогает при прозрачных углах (копирует alpha=0).
-    /// Y-sort обеспечивает правильный порядок перекрытия без прозрачности.
-    /// </summary>
-    private static void DrawSolidTile(Image image, int tileIndex, Color fill, Color border)
-    {
-        const int w = 128, h = 64;
-        int ox = tileIndex * w;
-        for (int y = 0; y < h; y++)
-        for (int x = 0; x < w; x++)
-        {
-            float nx   = (float)x / w;
-            float ny   = (float)y / h;
-            float dist = Mathf.Abs(nx - 0.5f) + Mathf.Abs(ny - 0.5f);
-            // Граница ромба остаётся для визуальной стилизации,
-            // но угловые прямоугольные области тоже закрашены (нет прозрачности)
-            Color c = dist > 0.46f ? border : fill;
-            image.SetPixel(ox + x, y, c);
-        }
-    }
-
     private static void DrawIsoDiamond(Image image, int tileIndex, Color fill, Color border)
     {
         const int w = 128, h = 64;
