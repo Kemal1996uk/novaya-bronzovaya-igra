@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://t7vtrvx3khpl"
-path="res://.godot/imported/sand1_anim_strip_1row.png-e5c8a9803762e0651df517b4e3d42928.ctex"
+uid="uid://x147bkkmd1ql"
+path="res://.godot/imported/desert.png-5db250d8fd8ae08ab1a5c811b9083e2f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Tiles/sand1_anim_strip_1row.png"
-dest_files=["res://.godot/imported/sand1_anim_strip_1row.png-e5c8a9803762e0651df517b4e3d42928.ctex"]
+source_file="res://Assets/Tiles/desert.png"
+dest_files=["res://.godot/imported/desert.png-5db250d8fd8ae08ab1a5c811b9083e2f.ctex"]
 
 [params]
 

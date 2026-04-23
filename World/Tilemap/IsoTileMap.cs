@@ -19,9 +19,10 @@ public partial class IsoTileMap : TileMapLayer
 {
     public Vector2I MapSize { get; private set; } = new Vector2I(160, 160);
 
-    public const int SourceId      = 0;
-    public const int WaterSourceId = 1;
-    public const int SandSourceId  = 2;
+    public const int SourceId        = 0;
+    public const int WaterSourceId   = 1;
+    public const int SandSourceId    = 2;
+    public const int DesertSourceId  = 3;
 
     public static readonly Vector2I AtlasGrass     = new(0, 0);
     public static readonly Vector2I AtlasRoad      = new(1, 0);
@@ -32,6 +33,7 @@ public partial class IsoTileMap : TileMapLayer
     public static readonly Vector2I AtlasCopperOre = new(6, 0);
     public static readonly Vector2I AtlasTinOre    = new(7, 0);
     public static readonly Vector2I AtlasCanal     = new(8, 0);
+    public static readonly Vector2I AtlasDesert    = new(9, 0);
 
     // Внутренняя сетка типов тайлов (быстрый доступ без обращения к TileMap)
     private TileType[,] _typeGrid;
@@ -141,7 +143,7 @@ public partial class IsoTileMap : TileMapLayer
         }
 
         // 3. Пустыня — половина острова (полуплоскость со случайной ориентацией)
-        // Делим остров случайной линией через центр. Все тайлы Grass по одну сторону → Sand.
+        // Делим остров случайной линией через центр. Все тайлы Grass по одну сторону → Desert.
         // Граница размыта шумом ±8 тайлов для естественности.
         float desertAngle = rng.Randf() * Mathf.Tau;
         float dnx = Mathf.Cos(desertAngle); // нормаль к границе пустыни
@@ -153,7 +155,7 @@ public partial class IsoTileMap : TileMapLayer
             float proj  = (x - cx) * dnx + (y - cy) * dny;
             float noise = (rng.Randf() - 0.5f) * 16f; // размытие границы
             if (proj + noise > 0f)
-                SetTileInternal(new Vector2I(x, y), TileType.Sand);
+                SetTileInternal(new Vector2I(x, y), TileType.Desert);
         }
 
         // 4. Forest кластеры — много и крупные, только на Grass (зелёная половина)
@@ -166,7 +168,7 @@ public partial class IsoTileMap : TileMapLayer
         for (int i = 0; i < rockPatches / 2; i++)
             SpawnCluster(rng, TileType.Rock, TileType.Grass, 5, 10, cx, cy, rx - 4, ry - 4);
         for (int i = rockPatches / 2; i < rockPatches; i++)
-            SpawnCluster(rng, TileType.Rock, TileType.Sand,  5, 10, cx, cy, rx - 4, ry - 4);
+            SpawnCluster(rng, TileType.Rock, TileType.Desert, 5, 10, cx, cy, rx - 4, ry - 4);
 
         // 6. CopperOre — только в центре острова (радиус ≤ 22)
         int copperPatches = rng.RandiRange(4, 7);
@@ -309,6 +311,7 @@ public partial class IsoTileMap : TileMapLayer
             TileType.CopperOre => AtlasCopperOre,
             TileType.TinOre    => AtlasTinOre,
             TileType.Canal     => AtlasCanal,
+            TileType.Desert    => AtlasDesert,
             _                  => AtlasGrass,
         };
         SetCell(tile, SourceId, atlas);
@@ -344,14 +347,15 @@ public partial class IsoTileMap : TileMapLayer
     public bool IsBuildable(Vector2I tile)
     {
         var t = GetTileType(tile);
-        return t == TileType.Grass || t == TileType.Sand;
+        return t == TileType.Grass || t == TileType.Sand || t == TileType.Desert;
     }
 
     /// <summary>Можно ли проложить дорогу/канал по тайлу?</summary>
     public bool IsRoadable(Vector2I tile)
     {
         var t = GetTileType(tile);
-        return t == TileType.Grass || t == TileType.Sand || t == TileType.Road || t == TileType.Canal;
+        return t == TileType.Grass || t == TileType.Sand || t == TileType.Desert
+            || t == TileType.Road  || t == TileType.Canal;
     }
 
     // Исходные типы тайлов до прокладки дороги (для восстановления при сносе)
@@ -387,7 +391,8 @@ public partial class IsoTileMap : TileMapLayer
         for (int dy = -radius; dy <= radius; dy++)
         {
             var nb = center + new Vector2I(dx, dy);
-            if (IsValidTile(nb) && _typeGrid[nb.X, nb.Y] == TileType.Sand)
+            if (IsValidTile(nb) && (_typeGrid[nb.X, nb.Y] == TileType.Sand
+                                   || _typeGrid[nb.X, nb.Y] == TileType.Desert))
             {
                 _typeGrid[nb.X, nb.Y] = TileType.Grass;
                 SetCell(nb, SourceId, AtlasGrass);
@@ -532,6 +537,7 @@ public partial class IsoTileMap : TileMapLayer
         source.CreateTile(AtlasCopperOre);
         source.CreateTile(AtlasTinOre);
         source.CreateTile(AtlasCanal);
+        source.CreateTile(AtlasDesert);
 
         tileSet.AddSource(source, SourceId);
 
@@ -551,20 +557,26 @@ public partial class IsoTileMap : TileMapLayer
             tileSet.AddSource(waterSource, WaterSourceId);
         }
 
-        // Анимированный тайл песка (16 кадров, однострочный strip 2048×64)
-        var sandTex = GD.Load<Texture2D>("res://Assets/Tiles/sand1_anim_strip_1row.png");
-        if (sandTex != null)
+        // Анимированный тайл песка (12 кадров, однострочный strip 1536×64)
+        // Загружаем напрямую из файла — без .import
+        var sandStripPath = ProjectSettings.GlobalizePath("res://Assets/Tiles/sand1_anim_strip_1row.png");
+        if (System.IO.File.Exists(sandStripPath))
         {
-            var sandSource = new TileSetAtlasSource
+            var sandImg = Image.LoadFromFile(sandStripPath);
+            if (sandImg != null)
             {
-                Texture           = sandTex,
-                TextureRegionSize = new Vector2I(128, 64)
-            };
-            var sandCoord = new Vector2I(0, 0);
-            sandSource.CreateTile(sandCoord);
-            sandSource.SetTileAnimationFramesCount(sandCoord, 12);
-            sandSource.SetTileAnimationSpeed(sandCoord, 6f);
-            tileSet.AddSource(sandSource, SandSourceId);
+                var sandTex2 = ImageTexture.CreateFromImage(sandImg);
+                var sandSource = new TileSetAtlasSource
+                {
+                    Texture           = sandTex2,
+                    TextureRegionSize = new Vector2I(128, 64)
+                };
+                var sandCoord = new Vector2I(0, 0);
+                sandSource.CreateTile(sandCoord);
+                sandSource.SetTileAnimationFramesCount(sandCoord, 12);
+                sandSource.SetTileAnimationSpeed(sandCoord, 6f);
+                tileSet.AddSource(sandSource, SandSourceId);
+            }
         }
 
         TileSet = tileSet;
@@ -573,8 +585,8 @@ public partial class IsoTileMap : TileMapLayer
     private static ImageTexture CreatePlaceholderTexture()
     {
         const int tileW = 128, tileH = 64;
-        // 9 тайлов в ряд (0-7 оригинальные + 8 Canal)
-        var image = Image.CreateEmpty(tileW * 9, tileH, false, Image.Format.Rgba8);
+        // 10 тайлов в ряд (0-8 оригинальные + 9 Desert)
+        var image = Image.CreateEmpty(tileW * 10, tileH, false, Image.Format.Rgba8);
 
         // Grass
         DrawIsoDiamond(image, 0, new Color(0.35f, 0.55f, 0.16f), new Color(0.20f, 0.36f, 0.06f));
@@ -596,6 +608,9 @@ public partial class IsoTileMap : TileMapLayer
         DrawIsoDiamond(image, 7, new Color(0.55f, 0.55f, 0.68f), new Color(0.35f, 0.35f, 0.50f));
         // Canal — синий центр + коричневая рамка (бортики)
         DrawIsoDiamond(image, 8, new Color(0.16f, 0.44f, 0.82f), new Color(0.48f, 0.29f, 0.12f));
+        // Desert — реальный тайл из файла, иначе заглушка (бледно-жёлтый)
+        if (!BlitTileFromFile(image, 9, "res://Assets/Tiles/desert.png"))
+            DrawIsoDiamond(image, 9, new Color(0.91f, 0.82f, 0.54f), new Color(0.75f, 0.66f, 0.38f));
 
         return ImageTexture.CreateFromImage(image);
     }

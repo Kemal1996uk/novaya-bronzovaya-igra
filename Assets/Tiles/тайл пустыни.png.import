@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://nsgpra168m5c"
-path="res://.godot/imported/sand1_anim_strip.png-b35f9a518c7f281f06918e65dbdbc091.ctex"
+uid="uid://bx02dpn0audh6"
+path="res://.godot/imported/тайл пустыни.png-7a3500a2200f611619e378c2fabc12c2.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Assets/Tiles/sand1_anim_strip.png"
-dest_files=["res://.godot/imported/sand1_anim_strip.png-b35f9a518c7f281f06918e65dbdbc091.ctex"]
+source_file="res://Assets/Tiles/тайл пустыни.png"
+dest_files=["res://.godot/imported/тайл пустыни.png-7a3500a2200f611619e378c2fabc12c2.ctex"]
 
 [params]
 
