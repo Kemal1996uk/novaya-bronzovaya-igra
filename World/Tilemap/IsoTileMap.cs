@@ -568,6 +568,8 @@ public partial class IsoTileMap : TileMapLayer
             var sandImg = Image.LoadFromFile(sandStripPath);
             if (sandImg != null)
             {
+                // Алмазная маска: убираем полупрозрачные пиксели на краях каждого кадра
+                ApplyDiamondMaskToStrip(sandImg);
                 var sandTex2 = ImageTexture.CreateFromImage(sandImg);
                 var sandSource = new TileSetAtlasSource
                 {
@@ -621,6 +623,7 @@ public partial class IsoTileMap : TileMapLayer
     /// <summary>
     /// Загружает PNG-файл тайла и вставляет его в позицию tileIndex атласа.
     /// Масштабирует до 128×64. Возвращает false если файл не найден.
+    /// После блитинга применяет алмазную маску: за ромбом alpha=0, внутри alpha=1.
     /// </summary>
     private static bool BlitTileFromFile(Image atlas, int tileIndex, string resPath)
     {
@@ -629,9 +632,7 @@ public partial class IsoTileMap : TileMapLayer
         // Пробуем загрузить напрямую из файла (не зависит от .import кэша)
         string absPath = ProjectSettings.GlobalizePath(resPath);
         if (System.IO.File.Exists(absPath))
-        {
             src = Image.LoadFromFile(absPath);
-        }
 
         // Fallback — через ResourceLoader
         if (src == null)
@@ -641,9 +642,48 @@ public partial class IsoTileMap : TileMapLayer
             src = tex.GetImage();
         }
 
-        src.Resize(128, 64, Image.Interpolation.Bilinear);
+        // Nearest — не создаёт полупрозрачных пикселей на краях ромба при ресайзе
+        src.Resize(128, 64, Image.Interpolation.Nearest);
         atlas.BlitRect(src, new Rect2I(0, 0, 128, 64), new Vector2I(tileIndex * 128, 0));
+
+        // Алмазная маска: снаружи ромба → строго alpha=0, внутри → alpha=1
+        // Та же математика что и в DrawIsoDiamond — исключает полупрозрачные швы
+        ApplyDiamondMaskToAtlas(atlas, tileIndex * 128);
         return true;
+    }
+
+    /// <summary>
+    /// Применяет алмазную маску к одному тайлу (128×64) в атласе по смещению offsetX.
+    /// Пиксели за пределами ромба → полностью прозрачны; внутри → полностью непрозрачны.
+    /// </summary>
+    private static void ApplyDiamondMaskToAtlas(Image atlas, int offsetX)
+    {
+        const int w = 128, h = 64;
+        for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+        {
+            float nx   = (float)x / w;
+            float ny   = (float)y / h;
+            float dist = Mathf.Abs(nx - 0.5f) + Mathf.Abs(ny - 0.5f);
+            if (dist > 0.5f)
+                atlas.SetPixel(offsetX + x, y, Colors.Transparent);
+            else
+            {
+                var c = atlas.GetPixel(offsetX + x, y);
+                atlas.SetPixel(offsetX + x, y, new Color(c.R, c.G, c.B, 1.0f));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Применяет алмазную маску ко всем кадрам стрипа (1 строка, несколько кадров).
+    /// Используется для анимационных тайлов.
+    /// </summary>
+    private static void ApplyDiamondMaskToStrip(Image strip, int frameW = 128, int frameH = 64)
+    {
+        int frames = strip.GetWidth() / frameW;
+        for (int f = 0; f < frames; f++)
+            ApplyDiamondMaskToAtlas(strip, f * frameW);
     }
 
     private static void DrawIsoDiamond(Image image, int tileIndex, Color fill, Color border)
