@@ -47,9 +47,6 @@ public partial class IsoTileMap : TileMapLayer
         // Nearest filtering — убирает интерполяцию между тайлами (главная причина швов)
         TextureFilter = TextureFilterEnum.Nearest;
 
-        // Лёгкое масштабирование — перекрывает субпиксельные щели
-        Scale = new Vector2(1.008f, 1.008f);
-
         // Режим карты определяется через GameManager (доступен до _Ready у автозагрузок)
         var gm = GameManager.Instance;
         if (gm?.EditorMapMode == true)
