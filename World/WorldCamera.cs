@@ -69,7 +69,7 @@ public partial class WorldCamera : Camera2D
         if (@event is InputEventMouseMotion motion && _isDragging)
         {
             var delta2 = GetViewport().GetMousePosition() - _dragStartMouse;
-            Position = _dragStartPos - delta2 / Zoom.X;
+            Position = (_dragStartPos - delta2 / Zoom.X).Round();
             GetViewport().SetInputAsHandled();
         }
     }
@@ -86,7 +86,10 @@ public partial class WorldCamera : Camera2D
         if (Input.IsKeyPressed(Key.S) || Input.IsKeyPressed(Key.Down))  move.Y += 1;
 
         if (move != Vector2.Zero)
+        {
             Position += move.Normalized() * PanSpeed * delta / Zoom.X;
+            Position = Position.Round();
+        }
     }
 
     private void HandleEdgeScroll(float delta)
@@ -103,7 +106,10 @@ public partial class WorldCamera : Camera2D
         if (mouse.Y > viewSize.Y - EdgeMargin) move.Y += 1;
 
         if (move != Vector2.Zero)
+        {
             Position += move.Normalized() * PanSpeed * delta / Zoom.X;
+            Position = Position.Round();
+        }
     }
 
     /// <summary>Плавное сглаживание зума (lerp к целевому значению).</summary>

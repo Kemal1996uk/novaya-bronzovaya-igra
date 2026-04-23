@@ -39,6 +39,9 @@ public partial class IsoTileMap : TileMapLayer
     private TileType[,] _typeGrid;
 
     private TileMapLayer _bgWaterLayer;
+    private TileMapLayer _bgDesertLayer;
+    private TileMapLayer _bgGrassLayer;
+    private TileMapLayer _bgSandLayer;
 
     public override void _Ready()
     {
@@ -55,6 +58,9 @@ public partial class IsoTileMap : TileMapLayer
         _typeGrid = new TileType[MapSize.X, MapSize.Y];
         SetupTileSet();
         SetupBgWaterLayer();
+        SetupBgSolidLayer(ref _bgGrassLayer,  "BgGrassLayer",  new Color(0.35f, 0.55f, 0.16f), zIndex: -3);
+        SetupBgSolidLayer(ref _bgSandLayer,   "BgSandLayer",   new Color(0.83f, 0.72f, 0.48f), zIndex: -2);
+        SetupBgSolidLayer(ref _bgDesertLayer, "BgDesertLayer", new Color(0.91f, 0.82f, 0.54f), zIndex: -1);
 
         if (gm?.EditorMapMode == true)
         {
@@ -70,6 +76,43 @@ public partial class IsoTileMap : TileMapLayer
             GenerateIsland();
             GD.Print($"[IsoTileMap] Остров {MapSize.X}×{MapSize.Y} сгенерирован.");
         }
+    }
+
+    /// <summary>
+    /// Создаёт фоновый слой сплошного цвета (прямоугольник 128×64, без прозрачных углов).
+    /// Перекрывает швы между тайлами при движении камеры.
+    /// </summary>
+    private void SetupBgSolidLayer(ref TileMapLayer layer, string name, Color color, int zIndex)
+    {
+        // Сплошной прямоугольник — НЕ ромб, чтобы перекрыть углы
+        var img = Image.CreateEmpty(128, 64, false, Image.Format.Rgba8);
+        img.Fill(color);
+        var tex = ImageTexture.CreateFromImage(img);
+
+        var ts = new TileSet
+        {
+            TileShape  = TileSet.TileShapeEnum.Isometric,
+            TileLayout = TileSet.TileLayoutEnum.DiamondDown,
+            TileSize   = new Vector2I(128, 64)
+        };
+        var src = new TileSetAtlasSource
+        {
+            Texture           = tex,
+            TextureRegionSize = new Vector2I(128, 64),
+            UseTexturePadding = false
+        };
+        src.CreateTile(new Vector2I(0, 0));
+        ts.AddSource(src, 0);
+
+        layer = new TileMapLayer
+        {
+            Name          = name,
+            YSortEnabled  = false,
+            ZIndex        = zIndex,
+            TileSet       = ts,
+            TextureFilter = TextureFilterEnum.Nearest
+        };
+        AddChild(layer);
     }
 
     private void SetupBgWaterLayer()
@@ -287,6 +330,9 @@ public partial class IsoTileMap : TileMapLayer
     {
         var type = _typeGrid[tile.X, tile.Y];
 
+        // ── Фоновые слои: сплошной цвет перекрывает швы под ромбами ──────────
+        UpdateBgLayers(tile, type);
+
         if (type == TileType.Water)
         {
             if (TileSet.GetSourceCount() > 1)
@@ -318,6 +364,38 @@ public partial class IsoTileMap : TileMapLayer
             _                  => AtlasGrass,
         };
         SetCell(tile, SourceId, atlas);
+    }
+
+    /// <summary>
+    /// Обновляет фоновые сплошные слои для каждого тайла.
+    /// Сплошные прямоугольники перекрывают просветы между ромбами при движении камеры.
+    /// </summary>
+    private void UpdateBgLayers(Vector2I tile, TileType type)
+    {
+        var coord = new Vector2I(0, 0);
+
+        // Трава — фоновый слой трава-цвет
+        if (_bgGrassLayer != null)
+        {
+            bool isGrass = type is TileType.Grass or TileType.Forest or TileType.Rock
+                                or TileType.CopperOre or TileType.TinOre or TileType.Road or TileType.Canal;
+            if (isGrass) _bgGrassLayer.SetCell(tile, 0, coord);
+            else         _bgGrassLayer.EraseCell(tile);
+        }
+
+        // Песок — фоновый слой песок-цвет
+        if (_bgSandLayer != null)
+        {
+            if (type == TileType.Sand) _bgSandLayer.SetCell(tile, 0, coord);
+            else                       _bgSandLayer.EraseCell(tile);
+        }
+
+        // Пустыня — фоновый слой пустынь-цвет
+        if (_bgDesertLayer != null)
+        {
+            if (type == TileType.Desert) _bgDesertLayer.SetCell(tile, 0, coord);
+            else                         _bgDesertLayer.EraseCell(tile);
+        }
     }
 
     // ─── Публичные методы ─────────────────────────────────────────────────────
