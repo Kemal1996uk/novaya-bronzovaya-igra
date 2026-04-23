@@ -646,8 +646,11 @@ public partial class IsoTileMap : TileMapLayer
             var sandImg = Image.LoadFromFile(sandStripPath);
             if (sandImg != null)
             {
-                // Алмазная маска: убираем полупрозрачные пиксели на краях каждого кадра
-                ApplyDiamondMaskToStrip(sandImg);
+                // SOLID: заполняем каждый кадр полностью (не алмазная маска).
+                // Прозрачные углы в анимированных тайлах вызывают швы — solid решает.
+                // SetTileAnimationColumns(12) нужен: кадры расположены в 1 строку (1536×64),
+                // без этого Godot ищет кадры вертикально → видит только кадр 0.
+                MakeSolidStrip(sandImg);
                 var sandTex2 = ImageTexture.CreateFromImage(sandImg);
                 var sandSource = new TileSetAtlasSource
                 {
@@ -656,6 +659,7 @@ public partial class IsoTileMap : TileMapLayer
                 };
                 var sandCoord = new Vector2I(0, 0);
                 sandSource.CreateTile(sandCoord);
+                sandSource.SetTileAnimationColumns(sandCoord, 12); // ← 12 кадров в строку!
                 sandSource.SetTileAnimationFramesCount(sandCoord, 12);
                 sandSource.SetTileAnimationSpeed(sandCoord, 6f);
                 tileSet.AddSource(sandSource, SandSourceId);
@@ -671,16 +675,15 @@ public partial class IsoTileMap : TileMapLayer
         // 10 тайлов в ряд (0-8 оригинальные + 9 Desert)
         var image = Image.CreateEmpty(tileW * 10, tileH, false, Image.Format.Rgba8);
 
-        // Grass
-        DrawIsoDiamond(image, 0, new Color(0.35f, 0.55f, 0.16f), new Color(0.20f, 0.36f, 0.06f));
+        // Grass — SOLID прямоугольник, без швов (use_texture_padding не работает с прозрачными углами)
+        DrawSolidTile(image, 0, new Color(0.35f, 0.55f, 0.16f), new Color(0.20f, 0.36f, 0.06f));
         // Road
         DrawIsoDiamond(image, 1, new Color(0.63f, 0.50f, 0.31f), new Color(0.43f, 0.32f, 0.16f));
         // Water — реальный тайл из файла, иначе заглушка
         if (!BlitTileFromFile(image, 2, "res://Assets/Tiles/sea.png"))
             DrawIsoDiamond(image, 2, new Color(0.16f, 0.44f, 0.82f), new Color(0.08f, 0.26f, 0.60f));
-        // Sand — реальный тайл из файла, иначе заглушка
-        if (!BlitTileFromFile(image, 3, "res://Assets/Tiles/sand1.png"))
-            DrawIsoDiamond(image, 3, new Color(0.83f, 0.72f, 0.48f), new Color(0.65f, 0.54f, 0.30f));
+        // Sand — SOLID (без PNG, без прозрачных углов → нет швов)
+        DrawSolidTile(image, 3, new Color(0.83f, 0.72f, 0.48f), new Color(0.65f, 0.54f, 0.30f));
         // Forest
         DrawIsoDiamond(image, 4, new Color(0.18f, 0.36f, 0.06f), new Color(0.08f, 0.20f, 0.02f));
         // Rock
@@ -762,6 +765,46 @@ public partial class IsoTileMap : TileMapLayer
         int frames = strip.GetWidth() / frameW;
         for (int f = 0; f < frames; f++)
             ApplyDiamondMaskToAtlas(strip, f * frameW);
+    }
+
+    /// <summary>
+    /// Делает каждый пиксель стрипа полностью непрозрачным (solid).
+    /// Нужно для анимированных ground-тайлов: прозрачные углы создают швы,
+    /// solid-кадры гарантируют бесшовную укладку через Y-sort.
+    /// </summary>
+    private static void MakeSolidStrip(Image strip)
+    {
+        int w = strip.GetWidth();
+        int h = strip.GetHeight();
+        for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+        {
+            var c = strip.GetPixel(x, y);
+            strip.SetPixel(x, y, new Color(c.R, c.G, c.B, 1.0f));
+        }
+    }
+
+    /// <summary>
+    /// Рисует сплошной прямоугольный тайл 128×64 — без прозрачных углов.
+    /// Это единственный способ полностью устранить швы для тайлов земли:
+    /// use_texture_padding не помогает при прозрачных углах (копирует alpha=0).
+    /// Y-sort обеспечивает правильный порядок перекрытия без прозрачности.
+    /// </summary>
+    private static void DrawSolidTile(Image image, int tileIndex, Color fill, Color border)
+    {
+        const int w = 128, h = 64;
+        int ox = tileIndex * w;
+        for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+        {
+            float nx   = (float)x / w;
+            float ny   = (float)y / h;
+            float dist = Mathf.Abs(nx - 0.5f) + Mathf.Abs(ny - 0.5f);
+            // Граница ромба остаётся для визуальной стилизации,
+            // но угловые прямоугольные области тоже закрашены (нет прозрачности)
+            Color c = dist > 0.46f ? border : fill;
+            image.SetPixel(ox + x, y, c);
+        }
     }
 
     private static void DrawIsoDiamond(Image image, int tileIndex, Color fill, Color border)
