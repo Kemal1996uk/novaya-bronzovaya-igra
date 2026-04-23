@@ -544,27 +544,30 @@ public partial class IsoTileMap : TileMapLayer
         // 10 тайлов в ряд (0-9)
         var image = Image.CreateEmpty(tileW * 10, tileH, false, Image.Format.Rgba8);
 
-        DrawIsoDiamond(image, 0, new Color(0.35f, 0.55f, 0.16f), new Color(0.20f, 0.36f, 0.06f)); // Grass
-        DrawIsoDiamond(image, 1, new Color(0.63f, 0.50f, 0.31f), new Color(0.43f, 0.32f, 0.16f)); // Road
-        DrawIsoDiamond(image, 2, new Color(0.16f, 0.44f, 0.82f), new Color(0.08f, 0.26f, 0.60f)); // Water
-        DrawIsoDiamond(image, 3, new Color(0.83f, 0.72f, 0.48f), new Color(0.65f, 0.54f, 0.30f)); // Sand
-        DrawIsoDiamond(image, 4, new Color(0.18f, 0.36f, 0.06f), new Color(0.08f, 0.20f, 0.02f)); // Forest
-        DrawIsoDiamond(image, 5, new Color(0.47f, 0.47f, 0.47f), new Color(0.28f, 0.28f, 0.28f)); // Rock
-        DrawIsoDiamond(image, 6, new Color(0.72f, 0.35f, 0.12f), new Color(0.50f, 0.22f, 0.06f)); // CopperOre
-        DrawIsoDiamond(image, 7, new Color(0.55f, 0.55f, 0.68f), new Color(0.35f, 0.35f, 0.50f)); // TinOre
-        DrawIsoDiamond(image, 8, new Color(0.16f, 0.44f, 0.82f), new Color(0.48f, 0.29f, 0.12f)); // Canal
-        DrawIsoDiamond(image, 9, new Color(0.91f, 0.82f, 0.54f), new Color(0.75f, 0.66f, 0.38f)); // Desert
+        // Заливка без бордюра — соседние тайлы сливаются в единую бесшовную поверхность
+        DrawIsoDiamond(image, 0, new Color(0.35f, 0.55f, 0.16f)); // Grass
+        DrawIsoDiamond(image, 1, new Color(0.63f, 0.50f, 0.31f)); // Road
+        DrawIsoDiamond(image, 2, new Color(0.16f, 0.44f, 0.82f)); // Water
+        DrawIsoDiamond(image, 3, new Color(0.83f, 0.72f, 0.48f)); // Sand
+        DrawIsoDiamond(image, 4, new Color(0.18f, 0.36f, 0.06f)); // Forest
+        DrawIsoDiamond(image, 5, new Color(0.47f, 0.47f, 0.47f)); // Rock
+        DrawIsoDiamond(image, 6, new Color(0.72f, 0.35f, 0.12f)); // CopperOre
+        DrawIsoDiamond(image, 7, new Color(0.55f, 0.55f, 0.68f)); // TinOre
+        DrawIsoDiamond(image, 8, new Color(0.16f, 0.44f, 0.82f)); // Canal
+        DrawIsoDiamond(image, 9, new Color(0.91f, 0.82f, 0.54f)); // Desert
 
         return ImageTexture.CreateFromImage(image);
     }
 
     /// <summary>
     /// Рисует изометрический ромб (диамант) 128×64 в позиции tileIndex атласа.
-    /// Пиксели снаружи ромба не трогаются → остаются прозрачными (alpha=0).
-    /// Жёсткие пиксельные края + Nearest-фильтр + use_texture_padding=true +
-    /// камера с .Round() + zoom=1.0 гарантируют отсутствие швов.
+    /// СПЛОШНАЯ заливка одним цветом — без бордюра, без градиента.
+    /// Соседние тайлы одного типа сливаются в единое поле — швов нет визуально.
+    /// Внутри ромба: dist ≤ 0.5 → fill. Снаружи: alpha=0 (прозрачно).
+    /// Граница ромба выровнена по пикселю — с Nearest-фильтром и pixel-snap камерой
+    /// соседние ромбы стыкуются пиксель-в-пиксель без разрывов.
     /// </summary>
-    private static void DrawIsoDiamond(Image image, int tileIndex, Color fill, Color border)
+    private static void DrawIsoDiamond(Image image, int tileIndex, Color fill)
     {
         const int w = 128, h = 64;
         int offsetX = tileIndex * w;
@@ -576,7 +579,7 @@ public partial class IsoTileMap : TileMapLayer
                 float ny = (float)y / h;
                 float dist = Mathf.Abs(nx - 0.5f) + Mathf.Abs(ny - 0.5f);
                 if (dist > 0.5f) continue;
-                image.SetPixel(offsetX + x, y, dist > 0.46f ? border : fill);
+                image.SetPixel(offsetX + x, y, fill);
             }
         }
     }
