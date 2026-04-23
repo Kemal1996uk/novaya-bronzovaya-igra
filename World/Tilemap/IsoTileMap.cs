@@ -642,28 +642,6 @@ public partial class IsoTileMap : TileMapLayer
         }
 
         src.Resize(128, 64, Image.Interpolation.Bilinear);
-        src.Convert(Image.Format.Rgba8);
-
-        // Вычисляем средний цвет непрозрачных пикселей (центр ромба)
-        var r = 0f; var g = 0f; var b = 0f; int count = 0;
-        for (int py = 16; py < 48; py++)
-        for (int px = 32; px < 96; px++)
-        {
-            var col = src.GetPixel(px, py);
-            if (col.A > 0.5f) { r += col.R; g += col.G; b += col.B; count++; }
-        }
-        var avgCol = count > 0
-            ? new Color(r / count, g / count, b / count, 1f)
-            : new Color(0.8f, 0.7f, 0.4f, 1f);
-
-        // Заполняем прозрачные углы средним цветом — убираем тёмные швы
-        for (int py = 0; py < 64; py++)
-        for (int px = 0; px < 128; px++)
-        {
-            if (src.GetPixel(px, py).A < 0.5f)
-                src.SetPixel(px, py, avgCol);
-        }
-
         atlas.BlitRect(src, new Rect2I(0, 0, 128, 64), new Vector2I(tileIndex * 128, 0));
         return true;
     }
@@ -672,7 +650,6 @@ public partial class IsoTileMap : TileMapLayer
     {
         const int w = 128, h = 64;
         int offsetX = tileIndex * w;
-        // Заполняем ВЕСЬ прямоугольник цветом тайла — нет прозрачных углов = нет швов
         for (int y = 0; y < h; y++)
         {
             for (int x = 0; x < w; x++)
@@ -680,10 +657,8 @@ public partial class IsoTileMap : TileMapLayer
                 float nx = (float)x / w;
                 float ny = (float)y / h;
                 float dist = Mathf.Abs(nx - 0.5f) + Mathf.Abs(ny - 0.5f);
-                Color c = dist > 0.5f ? fill        // углы — цвет тайла (не прозрачность)
-                        : dist > 0.46f ? border     // рамка ромба
-                        : fill;                     // центр
-                image.SetPixel(offsetX + x, y, c);
+                if (dist > 0.5f) continue;
+                image.SetPixel(offsetX + x, y, dist > 0.46f ? border : fill);
             }
         }
     }
