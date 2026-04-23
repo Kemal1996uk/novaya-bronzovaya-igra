@@ -535,52 +535,109 @@ public partial class IsoTileMap : TileMapLayer
     }
 
     /// <summary>
-    /// Процедурный атлас всех тайлов — только DrawIsoDiamond, без PNG.
-    /// Жёсткие пиксельные края гарантируют отсутствие швов с Nearest-фильтром.
+    /// Атлас всех тайлов: PNG там где есть, иначе процедурный ромб.
+    /// sea.png      → Water (idx 2)
+    /// desert.png   → Sand (idx 3) + Desert (idx 9), берём первый тайл 128×64
+    /// Остальные    → DrawIsoDiamond (сплошной цвет, без бордюра)
     /// </summary>
     private static ImageTexture CreatePlaceholderTexture()
     {
         const int tileW = 128, tileH = 64;
-        // 10 тайлов в ряд (0-9)
         var image = Image.CreateEmpty(tileW * 10, tileH, false, Image.Format.Rgba8);
 
-        // Заливка без бордюра — соседние тайлы сливаются в единую бесшовную поверхность
         DrawIsoDiamond(image, 0, new Color(0.35f, 0.55f, 0.16f)); // Grass
         DrawIsoDiamond(image, 1, new Color(0.63f, 0.50f, 0.31f)); // Road
-        DrawIsoDiamond(image, 2, new Color(0.16f, 0.44f, 0.82f)); // Water
-        DrawIsoDiamond(image, 3, new Color(0.83f, 0.72f, 0.48f)); // Sand
+
+        // Water → sea.png (128×64)
+        if (!BlitPng(image, 2, "res://Assets/Tiles/sea.png", 0, 0))
+            DrawIsoDiamond(image, 2, new Color(0.16f, 0.44f, 0.82f));
+
+        // Sand → desert.png первый тайл (0,0)
+        if (!BlitPng(image, 3, "res://Assets/Tiles/desert.png", 0, 0))
+            DrawIsoDiamond(image, 3, new Color(0.83f, 0.72f, 0.48f));
+
         DrawIsoDiamond(image, 4, new Color(0.18f, 0.36f, 0.06f)); // Forest
         DrawIsoDiamond(image, 5, new Color(0.47f, 0.47f, 0.47f)); // Rock
         DrawIsoDiamond(image, 6, new Color(0.72f, 0.35f, 0.12f)); // CopperOre
         DrawIsoDiamond(image, 7, new Color(0.55f, 0.55f, 0.68f)); // TinOre
         DrawIsoDiamond(image, 8, new Color(0.16f, 0.44f, 0.82f)); // Canal
-        DrawIsoDiamond(image, 9, new Color(0.91f, 0.82f, 0.54f)); // Desert
+
+        // Desert → desert.png второй тайл (1,0) для визуального разнообразия
+        if (!BlitPng(image, 9, "res://Assets/Tiles/desert.png", 1, 0))
+            DrawIsoDiamond(image, 9, new Color(0.91f, 0.82f, 0.54f));
 
         return ImageTexture.CreateFromImage(image);
     }
 
     /// <summary>
+    /// Вставляет тайл [srcTileX, srcTileY] из PNG-файла в позицию dstIndex атласа.
+    /// Ожидаемый размер тайла PNG: 128×64. Если PNG больше — кроп, если меньше — resize.
+    /// После вставки применяет алмазную маску: снаружи ромба alpha=0.
+    /// </summary>
+    private static bool BlitPng(Image atlas, int dstIndex, string resPath, int srcTileX, int srcTileY)
+    {
+        const int w = 128, h = 64;
+
+        Image src = null;
+        string absPath = ProjectSettings.GlobalizePath(resPath);
+        if (System.IO.File.Exists(absPath))
+            src = Image.LoadFromFile(absPath);
+        if (src == null)
+        {
+            var tex = GD.Load<Texture2D>(resPath);
+            if (tex == null) return false;
+            src = tex.GetImage();
+        }
+
+        // Кроп нужного тайла из спрайтшита
+        var region = new Rect2I(srcTileX * w, srcTileY * h, w, h);
+        var tile = Image.CreateEmpty(w, h, false, Image.Format.Rgba8);
+        if (src.GetWidth() >= region.End.X && src.GetHeight() >= region.End.Y)
+            tile.BlitRect(src, region, Vector2I.Zero);
+        else
+        {
+            src.Resize(w, h, Image.Interpolation.Nearest);
+            tile.BlitRect(src, new Rect2I(0, 0, w, h), Vector2I.Zero);
+        }
+
+        // Вставляем в атлас
+        atlas.BlitRect(tile, new Rect2I(0, 0, w, h), new Vector2I(dstIndex * w, 0));
+
+        // Алмазная маска: снаружи ромба → alpha=0, внутри → alpha=1
+        int ox = dstIndex * w;
+        for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+        {
+            float nx   = (float)x / w;
+            float ny   = (float)y / h;
+            float dist = Mathf.Abs(nx - 0.5f) + Mathf.Abs(ny - 0.5f);
+            if (dist > 0.5f)
+                atlas.SetPixel(ox + x, y, Colors.Transparent);
+            else
+            {
+                var c = atlas.GetPixel(ox + x, y);
+                atlas.SetPixel(ox + x, y, new Color(c.R, c.G, c.B, 1.0f));
+            }
+        }
+        return true;
+    }
+
+    /// <summary>
     /// Рисует изометрический ромб (диамант) 128×64 в позиции tileIndex атласа.
-    /// СПЛОШНАЯ заливка одним цветом — без бордюра, без градиента.
-    /// Соседние тайлы одного типа сливаются в единое поле — швов нет визуально.
-    /// Внутри ромба: dist ≤ 0.5 → fill. Снаружи: alpha=0 (прозрачно).
-    /// Граница ромба выровнена по пикселю — с Nearest-фильтром и pixel-snap камерой
-    /// соседние ромбы стыкуются пиксель-в-пиксель без разрывов.
+    /// Сплошная заливка без бордюра — соседние тайлы одного типа сливаются в поле.
     /// </summary>
     private static void DrawIsoDiamond(Image image, int tileIndex, Color fill)
     {
         const int w = 128, h = 64;
         int offsetX = tileIndex * w;
         for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
         {
-            for (int x = 0; x < w; x++)
-            {
-                float nx = (float)x / w;
-                float ny = (float)y / h;
-                float dist = Mathf.Abs(nx - 0.5f) + Mathf.Abs(ny - 0.5f);
-                if (dist > 0.5f) continue;
-                image.SetPixel(offsetX + x, y, fill);
-            }
+            float nx = (float)x / w;
+            float ny = (float)y / h;
+            float dist = Mathf.Abs(nx - 0.5f) + Mathf.Abs(ny - 0.5f);
+            if (dist > 0.5f) continue;
+            image.SetPixel(offsetX + x, y, fill);
         }
     }
 }
