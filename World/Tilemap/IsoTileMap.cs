@@ -552,8 +552,8 @@ public partial class IsoTileMap : TileMapLayer
         if (!BlitPng(image, 2, "res://Assets/Tiles/sea.png", 0, 0))
             DrawIsoDiamond(image, 2, new Color(0.16f, 0.44f, 0.82f));
 
-        // Sand → desert.png первый тайл (0,0)
-        if (!BlitPng(image, 3, "res://Assets/Tiles/desert.png", 0, 0))
+        // Sand и Desert → desert.png (один большой ромб 1024×512, ресайзим целиком)
+        if (!BlitPngResized(image, 3, "res://Assets/Tiles/desert.png"))
             DrawIsoDiamond(image, 3, new Color(0.83f, 0.72f, 0.48f));
 
         DrawIsoDiamond(image, 4, new Color(0.18f, 0.36f, 0.06f)); // Forest
@@ -562,11 +562,64 @@ public partial class IsoTileMap : TileMapLayer
         DrawIsoDiamond(image, 7, new Color(0.55f, 0.55f, 0.68f)); // TinOre
         DrawIsoDiamond(image, 8, new Color(0.16f, 0.44f, 0.82f)); // Canal
 
-        // Desert → desert.png второй тайл (1,0) для визуального разнообразия
-        if (!BlitPng(image, 9, "res://Assets/Tiles/desert.png", 1, 0))
+        // Desert → то же изображение (берег и пустыня одинаковый тайл)
+        if (!BlitPngResized(image, 9, "res://Assets/Tiles/desert.png"))
             DrawIsoDiamond(image, 9, new Color(0.91f, 0.82f, 0.54f));
 
         return ImageTexture.CreateFromImage(image);
+    }
+
+    /// <summary>
+    /// Ресайзит весь PNG в 128×64 и вставляет в позицию dstIndex атласа.
+    /// Используется когда PNG — один большой тайл (не спрайтшит по ячейкам).
+    /// </summary>
+    private static bool BlitPngResized(Image atlas, int dstIndex, string resPath)
+    {
+        const int w = 128, h = 64;
+
+        Image src = null;
+        var tex = ResourceLoader.Load<Texture2D>(resPath);
+        if (tex != null)
+            src = tex.GetImage();
+        if (src == null)
+        {
+            string absPath = ProjectSettings.GlobalizePath(resPath);
+            if (System.IO.File.Exists(absPath))
+                src = Image.LoadFromFile(absPath);
+        }
+        if (src == null)
+        {
+            GD.PrintErr($"[IsoTileMap] BlitPngResized: не удалось загрузить {resPath}");
+            return false;
+        }
+
+        if (src.GetFormat() != Image.Format.Rgba8)
+            src.Convert(Image.Format.Rgba8);
+
+        // Ресайз всего изображения до размера одного тайла
+        src.Resize(w, h, Image.Interpolation.Bilinear);
+
+        atlas.BlitRect(src, new Rect2I(0, 0, w, h), new Vector2I(dstIndex * w, 0));
+
+        // Алмазная маска
+        int ox = dstIndex * w;
+        for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+        {
+            float nx   = (float)x / w;
+            float ny   = (float)y / h;
+            float dist = Mathf.Abs(nx - 0.5f) + Mathf.Abs(ny - 0.5f);
+            if (dist > 0.5f)
+                atlas.SetPixel(ox + x, y, Colors.Transparent);
+            else
+            {
+                var c = atlas.GetPixel(ox + x, y);
+                atlas.SetPixel(ox + x, y, new Color(c.R, c.G, c.B, 1.0f));
+            }
+        }
+
+        GD.Print($"[IsoTileMap] BlitPngResized OK: {resPath} → atlas[{dstIndex}]");
+        return true;
     }
 
     /// <summary>
